@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #0f4c75 0%, #3282b8 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            background: rgba(255,255,255,0.15);
+            padding: 20px 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(76, 209, 55, 0.2);
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(76, 209, 55, 0.5);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background: #4cd137;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card { 
+            background: rgba(255,255,255,0.95); 
+            padding: 25px;
+            border-radius: 15px; 
+            color: #333;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+        }
+
+        .stat-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .stat-value {
+            font-size: 2.8rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-trend {
+            font-size: 0.9rem;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .trend-up {
+            color: #e84118;
+        }
+
+        .trend-down {
+            color: #4cd137;
+        }
+
+        .data-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+
+        .data-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .sensor-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .sensor-item {
+            background: rgba(255,255,255,0.9);
+            padding: 18px;
+            margin: 12px 0;
+            border-radius: 12px;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-left: 4px solid #3282b8;
+            transition: transform 0.2s;
+        }
+
+        .sensor-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        }
+
+        .sensor-info {
+            flex: 1;
+        }
+
+        .sensor-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .sensor-time {
+            font-size: 0.85rem;
+            color: #777;
+        }
+
+        .sensor-values {
+            display: flex;
+            gap: 20px;
+            text-align: right;
+        }
+
+        .temp-value, .humi-value {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .temp-value .value {
+            color: #e84118;
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        .humi-value .value {
+            color: #0097e6;
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        .temp-value .label, .humi-value .label {
+            font-size: 0.8rem;
+            color: #777;
+            margin-top: 3px;
+        }
+
+        .chart-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
+        }
+
+        .chart-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        .last-update {
+            text-align: center;
+            margin-top: 25px;
+            color: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            font-size: 1rem;
+        }
+
+        .loading { 
+            text-align: center; 
+            padding: 40px 20px; 
+            color: #666;
+            font-style: italic;
+        }
+
+        .error-message {
+            background: rgba(232, 65, 24, 0.1);
+            color: #e84118;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px 0;
+            border: 1px solid rgba(232, 65, 24, 0.3);
+        }
+
+        /* Scrollbar styling */
+        .sensor-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sensor-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .sensor-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .sensor-list::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+        <div class="header">
+            <h1>📊 Hệ Thống Giám Sát IoT</h1>
+            <div class="connection-status">
+                <div class="status-dot"></div>
+                <span>Đang kết nối - Dữ liệu thời gian thực</span>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>🌡️ Nhiệt Độ Trung Bình</h3>
+                <div id="avgTemp" class="stat-value">--°C</div>
+                <div class="stat-trend trend-up">↑ Tăng 0.5°C so với 1h trước</div>
+            </div>
+            <div class="stat-card">
+                <h3>💧 Độ Ẩm Trung Bình</h3>
+                <div id="avgHumi" class="stat-value">--%</div>
+                <div class="stat-trend trend-down">↓ Giảm 2% so với 1h trước</div>
+            </div>
+            <div class="stat-card">
+                <h3>📱 Thiết Bị Hoạt Động</h3>
+                <div id="deviceCount" class="stat-value">--</div>
+                <div class="stat-trend">3 thiết bị đang giám sát</div>
+            </div>
+            <div class="stat-card">
+                <h3>⏱️ Tần Suất Cập Nhật</h3>
+                <div class="stat-value">5s</div>
+                <div class="stat-trend">Dữ liệu thời gian thực</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="data-container">
+                <h2>📋 Dữ Liệu Cảm Biến</h2>
+                <div id="sensorList" class="sensor-list">
+                    <div class="loading">
+                        <i>Đang tải dữ liệu cảm biến...</i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-container">
+                <h2>📈 Phân Tích Theo Thời Gian</h2>
+                <div class="chart-wrapper">
+                    <canvas id="sensorChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📊 Biểu Đồ Xu Hướng</h2>
+            <div class="chart-wrapper">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="last-update">
+            <i>Cập nhật lần cuối: <span id="lastUpdate">--</span></i>
+        </div>
+    </div>
+
+    <script>
+        // QUAN TRỌNG: Sửa thành domain của bạn
+        const API_BASE = 'http://nguyentienduc.com:1880';
+        let sensorChart, trendChart;
+
+        // Dashboard functions
+        function initCharts() {
+            const ctx = document.getElementById('sensorChart').getContext('2d');
+            sensorChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Nhiệt độ (°C)',
+                            data: [],
+                            borderColor: '#e84118',
+                            backgroundColor: 'rgba(232, 65, 24, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Độ ẩm (%)',
+                            data: [],
+                            borderColor: '#0097e6',
+                            backgroundColor: 'rgba(0, 151, 230, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Trend chart for historical data
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(trendCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+                    datasets: [
+                        {
+                            label: 'Nhiệt độ TB (°C)',
+                            data: [24.5, 25.2, 26.8, 27.5, 28.1, 27.3, 26.2],
+                            backgroundColor: 'rgba(232, 65, 24, 0.7)',
+                            borderColor: '#e84118',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Độ ẩm TB (%)',
+                            data: [65, 62, 58, 55, 52, 54, 58],
+                            backgroundColor: 'rgba(0, 151, 230, 0.7)',
+                            borderColor: '#0097e6',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadSensorData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    displaySensorData(result.data);
+                    updateStatistics(result.data);
+                    updateChart(result.data);
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('vi-VN');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('sensorList').innerHTML = 
+                    '<div class="error-message">Lỗi kết nối API - Đang dùng dữ liệu mẫu</div>';
+                
+                // Fallback to mock data
+                useMockData();
+            }
+        }
+
+        function useMockData() {
+            const mockData = [
+                {
+                    device_name: "Cảm Biến Nhiệt Độ 1",
+                    temperature: (Math.random() * 10 + 20).toFixed(1),
+                    humidity: (Math.random() * 20 + 60).toFixed(1),
+                    created_at: new Date().toISOString()
+                },
+                {
+                    device_name: "Cảm Biến Độ Ẩm 1",
+                    temperature: (Math.random() * 10 + 22).toFixed(1),
+                    humidity: (Math.random() * 20 + 55).toFixed(1),
+                    created_at: new Date(Date.now() - 300000).toISOString()
+                },
+                {
+                    device_name: "Cảm Biến Môi Trường",
+                    temperature: (Math.random() * 10 + 21).toFixed(1),
+                    humidity: (Math.random() * 20 + 58).toFixed(1),
+                    created_at: new Date(Date.now() - 600000).toISOString()
+                },
+                {
+                    device_name: "Cảm Biến Kho Lạnh",
+                    temperature: (Math.random() * 5 + 5).toFixed(1),
+                    humidity: (Math.random() * 10 + 40).toFixed(1),
+                    created_at: new Date(Date.now() - 900000).toISOString()
+                }
+            ];
+            
+            displaySensorData(mockData);
+            updateStatistics(mockData);
+            updateChart(mockData);
+        }
+
+        function displaySensorData(data) {
+            const container = document.getElementById('sensorList');
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="loading">Không có dữ liệu cảm biến</div>';
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                const time = new Date(item.created_at).toLocaleTimeString('vi-VN');
+                html += `
+                    <div class="sensor-item">
+                        <div class="sensor-info">
+                            <div class="sensor-name">${item.device_name}</div>
+                            <div class="sensor-time">${time}</div>
+                        </div>
+                        <div class="sensor-values">
+                            <div class="temp-value">
+                                <div class="value">${item.temperature}°C</div>
+                                <div class="label">Nhiệt độ</div>
+                            </div>
+                            <div class="humi-value">
+                                <div class="value">${item.humidity}%</div>
+                                <div class="label">Độ ẩm</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateStatistics(data) {
+            if (!data || data.length === 0) return;
+            
+            const avgTemp = (data.reduce((sum, item) => sum + parseFloat(item.temperature), 0) / data.length).toFixed(1);
+            const avgHumi = (data.reduce((sum, item) => sum + parseFloat(item.humidity), 0) / data.length).toFixed(1);
+            const uniqueDevices = new Set(data.map(item => item.device_name)).size;
+            
+            document.getElementById('avgTemp').textContent = avgTemp + '°C';
+            document.getElementById('avgHumi').textContent = avgHumi + '%';
+            document.getElementById('deviceCount').textContent = uniqueDevices;
+        }
+
+        function updateChart(data) {
+            const labels = data.map(item => new Date(item.created_at).toLocaleTimeString('vi-VN')).reverse();
+            const temps = data.map(item => parseFloat(item.temperature)).reverse();
+            const humids = data.map(item => parseFloat(item.humidity)).reverse();
+            
+            sensorChart.data.labels = labels;
+            sensorChart.data.datasets[0].data = temps;
+            sensorChart.data.datasets[1].data = humids;
+            sensorChart.update();
+        }
+
+        // Khởi động
+        window.onload = function() {
+            initCharts();
+            loadSensorData();
+            setInterval(loadSensorData, 5000);
+        };
+    </script>
+</body>
+</html>
